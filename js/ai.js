@@ -126,8 +126,8 @@ function learnerProfile() {
   return `LEARNER PROFILE
 - Name: Naama, a WOMAN (address her with feminine forms: "sei stanca?", "sei pronta?"; her own adjectives/participles must be feminine: "sono andata", "sono contenta" - correct her if she uses masculine forms for herself).
 - Native language: Hebrew (Israeli). Explanations must be in natural, simple Hebrew, addressing her in the feminine.
-- Goal: pass the Italian B2 certification (${settings().examName}) in about ${Math.round(daysToExam() / 30)} months, to study Medicine at an Italian university.
-- She also takes an 8-hour/week Italian course (Suzy Academy); she studied the A1-A2 basics there (present tense, essere/avere, articles, prepositions, reflexive verbs, possessives, modals) but has NOT yet mastered them.
+- Goal: reach B2 in about ${Math.round(daysToExam() / 30)} months to study Medicine (in Italian) at an Italian university: pass ${[(settings().exams || []).includes('ital2') && 'the universities\' TEST ITA L2 (CISIA, multiple-choice listening/reading/structures)', (settings().exams || []).includes('cils') && 'CILS DUE-B2', (settings().exams || []).includes('celi') && 'CELI 3'].filter(Boolean).join(' and/or ') || settings().examName}.
+- She also takes an 8-hour/week Italian course at Susy Academy (a pre-med program: ~350 hours of Italian up to B2, then science courses - chemistry, physics, biology); she studied the A1-A2 basics there (present tense, essere/avere, articles, prepositions, reflexive verbs, possessives, modals) but has NOT yet mastered them.
 - Estimated level: ${level}. Has met ${v.seen} words/phrases in this app; ${v.known} are well-known.
 - Grammar topics covered so far: ${studied}
 - Focus this week: ${wk.join('; ') || cur.it}${course ? `\n- Recent topics from her course: ${course}` : ''}
@@ -423,6 +423,28 @@ export const EXAM_SECTIONS = {
   scrittura: { icon: '✍️', he: 'הבעה בכתב', it: 'Produzione scritta', min: 20 },
   orale: { icon: '🎤', he: 'הבעה בעל-פה', it: 'Produzione orale', min: 8 },
 };
+// TEST ITA L2 (CISIA) – המבחן של האוניברסיטאות: 72 שאלות אמריקאיות, 120 דק', 3 חלקים בקושי עולה (A2 → B1 → B2),
+// בכל חלק: האזנה (קטע אחד), קריאה (טקסט אחד), מבנים (2 טקסטים קצרים). 40 דק' לחלק, אין חזרה אחורה, אין ניקוד שלילי.
+export const ITAL2_PARTS = [
+  { n: 1, level: 'A2', he: 'חלק 1 · A2' },
+  { n: 2, level: 'B1', he: 'חלק 2 · B1' },
+  { n: 3, level: 'B2', he: 'חלק 3 · B2' },
+];
+const ital2Schema = () => ({
+  type: 'object', additionalProperties: false, required: ['listen', 'read', 'struct'],
+  properties: { listen: COMP_SCHEMA, read: COMP_SCHEMA, struct: { type: 'array', items: STRUCT_SCHEMA } },
+});
+export async function ital2Part(n) {
+  const part = ITAL2_PARTS[n - 1];
+  const system = `You write one section of a practice test in the format of the Italian university admission language test "TEST ITA L2" (CISIA), for Naama (Hebrew speaker, future medical student).
+This is section ${n} of 3, level ${part.level} (sections increase in difficulty: A2, B1, B2). All questions are multiple choice with 4 options; exactly one correct.
+Produce:
+1) "listen": an audio script (${n === 1 ? '120-160' : n === 2 ? '180-230' : '230-280'} words; a dialogue, interview, announcement or short lecture; for dialogues start each line with the speaker's name and a colon), with 7 comprehension questions in Italian.
+2) "read": a written text (${n === 1 ? '180-230' : n === 2 ? '250-320' : '320-400'} words, paragraphs separated by blank lines; notices, articles, university/academic texts, informative texts) with 7 questions in Italian (details, inference, vocabulary in context).
+3) "struct": exactly 2 short texts (${n === 1 ? '60-90' : '80-120'} words each), each with 5 numbered gaps written as [1]..[5], testing grammar and vocabulary of level ${part.level} (articles, prepositions, verb forms, pronouns, connectors, word choice).
+Each question: why_he / rule_he = short Hebrew explanation. Vary topics (university life, health, everyday life, culture, science). The total must be exactly 24 items (7 + 7 + 5 + 5).`;
+  return callJSON({ system, messages: [{ role: 'user', content: `Sezione ${n}` }], schema: ital2Schema(), maxTokens: 14000 });
+}
 const COMP_SCHEMA = {
   type: 'object', additionalProperties: false, required: ['title', 'kind_he', 'text', 'questions'],
   properties: {
@@ -474,9 +496,9 @@ Topics typical of these exams: everyday life, study and work, health, environmen
     return callJSON({ system: `${base}\nWrite a LANGUAGE STRUCTURES task (cloze): a coherent text of ${target === 'B2' ? '160-220' : '120-160'} words with 10 numbered gaps written as [1]...[10]. Each gap tests a different structure (articles, articulated prepositions, verb tenses and moods, pronouns, connectors, agreement). Prefer structures from her weak topics. For each gap: 4 options, answer = index, rule_he = the rule in one short Hebrew sentence.`, messages: [{ role: 'user', content: 'Strutture' }], schema: STRUCT_SCHEMA, maxTokens: 5000 });
   }
   if (sec === 'scrittura') {
-    return callJSON({ system: `${base}\nWrite a WRITING task like the exam (formal or informal email/letter, or an argumentative/descriptive text). task_it = the instructions in Italian as in the exam; task_he = Hebrew translation; points = 3-4 guiding points; length = ${target === 'B2' ? '"120-180 parole"' : '"80-120 parole"'}.`, messages: [{ role: 'user', content: 'Scrittura' }], schema: PROMPT_SCHEMA, maxTokens: 2000 });
+    return callJSON({ system: `${base}\nWrite a WRITING task like the exam. Alternate between the two typical B2 task types: (a) a short essay/argumentative or descriptive text, length ${target === 'B2' ? '"120-140 parole"' : '"90-110 parole"'}; (b) a formal or informal letter/email (request, complaint, invitation, reply), length ${target === 'B2' ? '"80-100 parole"' : '"60-80 parole"'}. task_it = the instructions in Italian as in the exam; task_he = Hebrew translation; points = 3-4 guiding points; length as above.`, messages: [{ role: 'user', content: 'Scrittura' }], schema: PROMPT_SCHEMA, maxTokens: 2000 });
   }
-  return callJSON({ system: `${base}\nWrite an ORAL production task like the exam: a monologue topic (describe/narrate/argue) with 3-4 guiding questions. task_it in Italian, task_he in Hebrew, length = ${target === 'B2' ? '"2-3 minuti"' : '"1-2 minuti"'}.`, messages: [{ role: 'user', content: 'Orale' }], schema: PROMPT_SCHEMA, maxTokens: 2000 });
+  return callJSON({ system: `${base}\nWrite an ORAL production task like the exam (the CILS B2 oral has a 2-3 minute conversation with the examiner and a ~2 minute monologue; CELI 3 also includes describing a picture/stimulus and a short discussion): here give the MONOLOGUE part - a topic to describe/narrate/argue, with 3-4 guiding questions. task_it in Italian, task_he in Hebrew, length = ${target === 'B2' ? '"2-3 minuti"' : '"1-2 minuti"'}.`, messages: [{ role: 'user', content: 'Orale' }], schema: PROMPT_SCHEMA, maxTokens: 2000 });
 }
 
 const GRADE_SCHEMA = {

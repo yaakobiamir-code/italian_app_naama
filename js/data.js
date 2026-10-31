@@ -980,7 +980,17 @@ const MED = [
   },
 ];
 
-export const UNITS = [...REVIEW, ...NEW, ...ADV.slice(0, 8), MED[0], ...ADV.slice(8), MED[1]];
+// שלב ב' בסוזי אקדמי הוא קורס מדעים (כימיה, פיזיקה, ביולוגיה) – אוצר המילים המדעי נכנס כבר ב-B1
+MED.push({
+  id: 'b23', it: 'Lessico scientifico: chimica, fisica, biologia', he: 'אוצר מילים מדעי: כימיה, פיזיקה, ביולוגיה', level: 'B1', stage: 'new', items: [], d: [],
+  gen: 'Core scientific vocabulary in Italian for a pre-med student who will study chemistry, physics and biology in Italian: the cell, DNA, organs and systems, atoms, molecules, reactions, acids and bases, solutions, energy, force, mass, speed, units of measurement, numbers and formulas read aloud, verbs for describing processes and experiments (misurare, calcolare, reagire, contenere, dimostrare). High-frequency, exam-relevant words only.',
+  grammar: `<h3>לקרוא נוסחאות ומספרים בקול</h3>
+<p><i lang="it">H₂O</i> = <i lang="it">acca due o</i> · <i lang="it">3,5</i> = <i lang="it">tre virgola cinque</i> (באיטליה פסיק עשרוני!) · <i lang="it">10³</i> = <i lang="it">dieci alla terza</i> · <i lang="it">x²</i> = <i lang="it">x al quadrato</i> · <i lang="it">%</i> = <i lang="it">per cento</i>.</p>
+<p>💡 שמות מדעים ומונחים רבים כמעט זהים לאנגלית: <i lang="it">la cellula, la molecola, l'energia, la reazione</i>. שימי לב למין: מילים ב-<b>-ione</b> הן נקבה (<i lang="it">la soluzione, la funzione</i>), וב-<b>-ma</b> ממקור יווני – זכר (<i lang="it">il sistema, il problema, l'enzima</i>).</p>
+<p>במבחני הקבלה ובקורסים מתארים תהליכים בסביל ו-si: <i lang="it">La soluzione viene riscaldata. Si misura la temperatura.</i></p>`,
+});
+
+export const UNITS = [...REVIEW, ...NEW, ...ADV.slice(0, 8), MED[0], MED[2], ...ADV.slice(8), MED[1]];
 
 export const STAGES = {
   review: { he: 'שלב 1 · חיזוק מה שלמדת בקורס', short: 'חיזוק' },

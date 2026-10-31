@@ -1,5 +1,5 @@
 // Service worker: האפליקציה נטענת ועובדת גם בלי אינטרנט (התרגול היומי). AI דורש חיבור.
-const VERSION = 'naama-v1';
+const VERSION = 'naama-v2';
 const FILES = [
   './', 'index.html', 'help.html', 'css/style.css', 'manifest.webmanifest',
   'js/app.js', 'js/data.js', 'js/base.js', 'js/srs.js', 'js/store.js', 'js/ai.js', 'js/speech.js',

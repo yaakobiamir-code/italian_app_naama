@@ -340,3 +340,6 @@ select.gap.wrong { border-color: var(--red); background: var(--red-soft); }
 #tgt button { flex: 1; padding: 8px 6px; font-size: .9rem; }
 .flash .cloze { margin-top: 8px; }
 .btn.mic.rec { background: var(--red); }
+.timer-bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; background: var(--gold-soft); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; }
+.chip.on { background: var(--green); color: var(--on-green); border-color: var(--green); }
+.x-chip { border: none; background: transparent; color: inherit; cursor: pointer; padding: 0 2px; }

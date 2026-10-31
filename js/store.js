@@ -10,6 +10,7 @@ const DEFAULTS = {
   unitWords: {},      // יחידות שהמילים שלהן נוצרו ע"י ה-AI: id -> [[it, he, ex, exHe], ...]
   unitDrills: {},     // תרגילים שנוצרו ע"י ה-AI: id -> [[k, q, a, o, he], ...]
   userUnits: [],      // נושאים שנעמה הוסיפה מהקורס בסוזי אקדמי
+  courseUnits: [],    // יחידות קיימות באפליקציה שסומנו "נלמד בקורס" (האפליקציה הולכת בקצב של הקורס)
   diag: null,         // תוצאות מבחן האבחון: { at, scores: { unitId: [נכון, מתוך] } }
   week: null,         // התוכנית השבועית: { key, units: [ids] }
   examResults: [],    // { sec, score, max, at }
@@ -24,6 +25,8 @@ const DEFAULTS = {
     courseHours: 8,     // שעות שבועיות בקורס בסוזי אקדמי
     examDate: '2027-03-15',
     examName: 'CILS B2 / CELI 3',
+    exams: ['ital2', 'cils', 'celi'], // המבחנים שהיא ניגשת אליהם
+    lessonDays: [],     // ימי השיעור בקורס (0=ראשון … 6=שבת)
     retention: 0.9,
     rate: 0.95,
     voice: '',
@@ -62,7 +65,7 @@ function load() {
     return {
       ...structuredClone(DEFAULTS), ...s,
       settings: { ...DEFAULTS.settings, ...(s.settings || {}) }, usage: { ...DEFAULTS.usage, ...(s.usage || {}) },
-      unitWords: s.unitWords || {}, unitDrills: s.unitDrills || {}, userUnits: s.userUnits || [], ctxLines: s.ctxLines || [], examResults: s.examResults || [],
+      unitWords: s.unitWords || {}, unitDrills: s.unitDrills || {}, userUnits: s.userUnits || [], courseUnits: s.courseUnits || [], ctxLines: s.ctxLines || [], examResults: s.examResults || [],
     };
   } catch {
     return { ...structuredClone(DEFAULTS), started: Date.now() };
@@ -156,6 +159,26 @@ export function removeUserUnit(id) {
   hydrateUnits(); save();
 }
 
+// ---------- סנכרון עם הקורס: "את זה למדנו בשיעור" ----------
+export function linkCourseUnit(id) {
+  if (!state.courseUnits.includes(id)) state.courseUnits.unshift(id);
+  state.week = null; save();
+}
+export function unlinkCourseUnit(id) { state.courseUnits = state.courseUnits.filter((x) => x !== id); state.week = null; save(); }
+// מחפשים יחידה קיימת שמתאימה לשם הנושא מהשיעור (כדי לא ליצור כפילות)
+const MATCH_STOP = new Set(['lessico', 'verbi', 'verbo', 'parole', 'ripasso', 'esercizi', 'italiano', 'lezione', 'grammatica', 'della', 'delle', 'degli', 'nella', 'uso', 'regole']);
+export function matchUnit(name) {
+  const n = (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const words = n.split(/[^a-z\u0590-\u05ff]+/).filter((w) => w.length >= 5 && !MATCH_STOP.has(w));
+  if (!words.length) return null;
+  const score = (u) => {
+    const t = `${u.it} ${u.he}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return words.filter((w) => t.includes(w)).length;
+  };
+  const best = UNITS.filter((u) => u.stage !== 'course').map((u) => [u, score(u)]).sort((a, b) => b[1] - a[1])[0];
+  return best && best[1] > 0 ? best[0] : null;
+}
+
 // כמה מילים חדשות זמינות עדיין (בלי ליצור עוד)
 export function pendingNewCount() { return nextNewItems(100000).length; }
 
@@ -190,7 +213,9 @@ export function orderedUnits() {
   const fresh = UNITS.filter((u) => u.stage === 'new');
   const week = (state.week?.units || []).map(unitById).filter(Boolean);
   const focus = state.settings.focusUnit ? [unitById(state.settings.focusUnit)].filter(Boolean) : [];
-  return [...new Set([...focus, ...course, ...week, ...review, ...fresh])];
+  // נושאים שכבר נלמדו בקורס קודמים לכל השאר – חזרה מרווחת על מה שנלמד בשיעור (successive relearning)
+  const linked = state.courseUnits.map(unitById).filter(Boolean);
+  return [...new Set([...focus, ...course, ...linked, ...week, ...review, ...fresh])];
 }
 
 // מילים חדשות: קודם מה שנעמה פגשה בעצמה (תיקונים, מילים מהשיחה/סיפור), אחר כך לפי סדר הלמידה
@@ -462,7 +487,7 @@ export function importJSON(text) {
   const s = JSON.parse(text);
   if (!s || typeof s !== 'object' || !s.cards) throw new Error('bad file');
   const keepKey = state.settings.apiKey;
-  state = { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) }, unitWords: s.unitWords || {}, unitDrills: s.unitDrills || {}, userUnits: s.userUnits || [], examResults: s.examResults || [] };
+  state = { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) }, unitWords: s.unitWords || {}, unitDrills: s.unitDrills || {}, userUnits: s.userUnits || [], courseUnits: s.courseUnits || [], examResults: s.examResults || [] };
   if (!state.settings.apiKey) state.settings.apiKey = keepKey;
   hydrateUnits();
   save();

@@ -299,13 +299,20 @@ const TIPS = [
 // פעילות היום (בנוסף לתרגול): מתחלפת לפי יום בשבוע, כך שכל המיומנויות של המבחן מתורגלות כל שבוע
 function activityOfDay() {
   const wd = new Date().getDay();
-  const odd = Math.floor(Date.now() / (7 * 86400000)) % 2;
-  if (store.daysToExam() <= 14) return { href: `#ex/${['ascolto', 'lettura', 'strutture', 'scrittura', 'orale'][wd % 5]}`, icon: '🎓', label: 'מבחן דמה – חלק אחד ביום', done: store.today().exam > 0 };
+  const wkn = Math.floor(Date.now() / (7 * 86400000));
+  const odd = wkn % 2;
+  // ביום רביעי: מתחלף בין קריאה, מבנים ו-TEST ITA L2
+  const wed = has('ital2') ? [['#ex/lettura', '📖', 'מבחן: הבנת הנקרא'], ['#ex/strutture', '🧩', 'מבחן: מבנים לשוניים'], [`#ital2/${1 + (Math.floor(wkn / 3) % 3)}`, '🏛️', 'TEST ITA L2: חלק אחד (40 דק\' – או חצי מהשאלות)']][wkn % 3]
+    : odd ? ['#ex/lettura', '📖', 'מבחן: הבנת הנקרא'] : ['#ex/strutture', '🧩', 'מבחן: מבנים לשוניים'];
+  if (store.daysToExam() <= 14) {
+    const parts = [...(has('ital2') ? ['#ital2/sim'] : []), '#ex/ascolto', '#ex/lettura', '#ex/strutture', '#ex/scrittura', '#ex/orale'];
+    return { href: parts[wd % parts.length], icon: '🎓', label: 'מבחן דמה – חלק אחד ביום', done: store.today().exam > 0 };
+  }
   const plan = [
     { href: `#chat/${scenarioOfDay().id}`, icon: '🗣️', label: `שיחה: ${scenarioOfDay().he}`, key: 'chat' },
     { href: '#ex/ascolto', icon: '🎧', label: 'מבחן: הבנת הנשמע', key: 'exam' },
     { href: `#chat/${scenarioOfDay().id}`, icon: '🗣️', label: `שיחה: ${scenarioOfDay().he}`, key: 'chat' },
-    { href: odd ? '#ex/lettura' : '#ex/strutture', icon: odd ? '📖' : '🧩', label: odd ? 'מבחן: הבנת הנקרא' : 'מבחן: מבנים לשוניים', key: 'exam' },
+    { href: wed[0], icon: wed[1], label: wed[2], key: 'exam' },
     { href: '#stories', icon: '🎧', label: 'סיפור: האזנה וקריאה', key: 'stories' },
     { href: odd ? '#ex/orale' : '#ex/scrittura', icon: odd ? '🎤' : '✍️', label: odd ? 'מבחן: הבעה בעל-פה' : 'מבחן: הבעה בכתב', key: 'exam' },
     { href: `#chat/${scenarioOfDay().id}`, icon: '🗣️', label: 'שיחה קלילה (או יום מנוחה)', key: 'chat' },
@@ -313,6 +320,7 @@ function activityOfDay() {
   const t = store.today();
   return { ...plan, done: plan.key === 'chat' ? t.chat >= 6 : (t[plan.key] || 0) > 0 };
 }
+const lessonToday = () => { const d = set().lessonDays || []; return !d.length || d.includes(new Date().getDay()) || d.includes((new Date().getDay() + 6) % 7); };
 function scenarioOfDay() {
   const open = SCENARIOS.filter((s) => store.unitStarted(s.after) || !s.after);
   return open[new Date().getDate() % open.length] || SCENARIOS[0];
@@ -355,7 +363,7 @@ routes.today = {
     <div class="tasks">
       <a class="task ${practiced ? 'done' : ''}" href="#practice"><span>🧠</span><b>תרגול: חזרות + חדשים (כ-10 דק')</b><i>${practiced ? '✓' : '›'}</i></a>
       <a class="task ${act.done ? 'done' : ''}" href="${act.href}"><span>${act.icon}</span><b>${esc(act.label)} (כ-${goal - 10} דק')</b><i>${act.done ? '✓' : '›'}</i></a>
-      <a class="task" href="#suzy"><span>📒</span><b>היה היום שיעור בסוזי? הוסיפי נושא/מילים</b><i>›</i></a>
+      ${lessonToday() ? `<a class="task" href="#suzy"><span>📒</span><b>${(set().lessonDays || []).length ? 'היום יש שיעור: אחריו, 2 דק\' – מה נלמד?' : 'היה היום שיעור בסוזי? הוסיפי מה נלמד'}</b><i>›</i></a>` : ''}
     </div>
     ${weekCard(wk)}
     <div class="grid2">
@@ -380,7 +388,7 @@ function countdownCard() {
   const d = store.daysToExam();
   const h = store.hoursForecast();
   return `<a class="card countdown" href="#more">
-    <div class="row-between"><div><b class="big">⏳ ${d} ימים</b> <span class="small muted">עד ${esc(set().examName)} · ${store.examDate().toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div><span class="lvl">רמה: <b>${ai.levelInfo().code}</b></span></div>
+    <div class="row-between"><div><b class="big">⏳ ${d} ימים</b> <span class="small muted">עד ${esc(examLabel())} · ${store.examDate().toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div><span class="lvl">רמה: <b>${ai.levelInfo().code}</b></span></div>
     <div class="lv-bars">${store.LEVELS.map((l) => `<div><small>${l}</small><div class="track"><i style="width:${store.levelProgress(l)}%"></i></div></div>`).join('')}</div>
     <p class="small muted">עד המבחן: כ-${h.course} שעות בקורס + ${h.app} באפליקציה ≈ <b>${h.total}</b> שעות. ${h.total + h.done >= 250 ? 'זה טווח שמאפשר B2 מבסיס A2 – בתנאי שמתמידים.' : 'זה מעט ל-B2 – כדאי לשקול להוסיף זמן בסופי שבוע.'}</p>
   </a>`;
@@ -1007,11 +1015,22 @@ routes.suzy = {
       <div class="actions"><button class="btn" id="tadd">צרי נושא</button></div>
       <p class="small muted">${ai.hasKey() ? 'המורה תכין תרגילים לנושא אוטומטית.' : 'עם מפתח AI המורה גם תכין תרגילים לנושא.'}</p><div id="tout"></div></div>
     ${course.length ? `<div class="card"><h3>הנושאים שהוספת</h3>${course.map((u) => { const m = store.mastery(u); return `<a class="row-link" href="#unit/${u.id}"><span>${esc(u.he)} <small class="muted">${(u.items || []).length} מילים · ${(u.drills || []).length} תרגילים</small></span><span class="mini-track"><i style="width:${m.pct}%"></i></span></a>`; }).join('')}</div>` : ''}
+    <div class="card"><h3>✓ למדנו בשיעור נושא שכבר יש באפליקציה</h3>
+      <p class="small muted">סמני – והאפליקציה תתחיל לתרגל אותו מיד (חזרה על מה שנלמד בשיעור, באותו שבוע, היא מה שהכי מקבע). כך האפליקציה הולכת בקצב של הקורס ולא מקדימה אותו.</p>
+      ${(() => { const linked = store.S().courseUnits.map(store.unitById).filter(Boolean); return linked.length ? `<p class="small"><b>סומנו:</b> ${linked.map((u) => `<span class="chip">${esc(u.he)} <button class="x-chip" data-unlink="${u.id}">✕</button></span>`).join(' ')}</p>` : ''; })()}
+      <select id="lu"><option value="">בחרי נושא…</option>${UNITS.filter((u) => u.stage !== 'course' && !store.S().courseUnits.includes(u.id)).map((u) => `<option value="${u.id}">${esc(u.he)} (${u.level})</option>`).join('')}</select>
+      <div class="actions"><button class="btn" id="lubtn">נלמד בקורס ✓</button></div></div>
     <div class="card"><h3>רק מילים (בלי נושא)</h3><p class="small muted">הן ייכנסי ל"המילים שלי".</p>
       <a class="btn ghost" href="#words">להוספת מילים בודדות</a></div>`;
+    $('#lubtn').onclick = () => { const id = $('#lu').value; if (!id) return; store.linkCourseUnit(id); toast('יופיע בתרגול הקרוב'); routes.suzy.render(); };
+    view().querySelectorAll('[data-unlink]').forEach((b) => { b.onclick = () => { store.unlinkCourseUnit(b.dataset.unlink); routes.suzy.render(); }; });
     $('#tadd').onclick = async () => {
       const name = $('#tit').value.trim();
       if (!name) return toast('כתבי שם לנושא');
+      const m = store.matchUnit(name);
+      if (m && confirm(`יש כבר באפליקציה נושא מתאים: "${m.he}". לסמן אותו כ"נלמד בקורס" במקום ליצור נושא חדש?`)) {
+        store.linkCourseUnit(m.id); toast('סומן – יופיע בתרגול הקרוב'); go(`#unit/${m.id}`); return;
+      }
       const id = store.addUserUnit({ it: name, he: name, note: $('#tnote').value });
       if (ai.hasKey()) {
         $('#tout').innerHTML = spinner('מכינה תרגילים לנושא… (כ-30 שניות)');
@@ -1381,8 +1400,9 @@ routes.more = {
       <div class="stat"><b>${total.e}</b><span>משימית מבחן</span></div>
     </div>
     <div class="card"><h3>🎓 תרגול למבחן – ממוצע 5 אחרונים</h3>
+      ${has('ital2') ? (() => { const a = store.examAvg('ital2'); return `<a class="row-link" href="#exam"><span>🏛️ TEST ITA L2</span><span class="${a == null ? 'muted' : a >= 75 ? 'ok' : 'warn-text'}">${a == null ? '—' : a + '%'}</span></a>`; })() : ''}
       ${Object.entries(ai.EXAM_SECTIONS).map(([k, s]) => { const a = store.examAvg(k); return `<a class="row-link" href="#ex/${k}"><span>${s.icon} ${s.he}</span><span class="${a == null ? 'muted' : a >= 55 ? 'ok' : 'warn-text'}">${a == null ? '—' : a + '%'}</span></a>`; }).join('')}
-      <p class="small muted">כדי לעבור כל חלק צריך בערך 55% (11/20). המטרה: כל החמישה מעל 65% חודש לפני המבחן.</p></div>
+      <p class="small muted">CILS: לפחות 11/20 (55%) בכל חלק. CELI 3: 60% בכתוב, 55% בעל-פה. TEST ITA L2: כ-70%–75% (51–55 מתוך 72). המטרה: מעל הסף בכל השורות חודש לפני המבחן.</p></div>
     ${weak.length ? `<div class="card"><h3>🎯 נושאים חלשים כרגע</h3>${weak.map((u) => `<a class="row-link" href="#unit/${u.id}">${esc(u.he)}</a>`).join('')}</div>` : ''}
     <div class="card"><h3>שליטה לפי נושא</h3>${topics.map((u) => { const m = store.mastery(u); return `<a class="row-link" href="#unit/${u.id}"><span class="small">${esc(u.he)}</span><span class="mini-track"><i style="width:${m.pct}%"></i></span></a>`; }).join('')}</div>
     <div class="card"><h3>14 הימים האחרונים</h3>
@@ -1467,10 +1487,14 @@ routes.settings = {
       <p class="small muted">שימיש עד עכשיו: ${(u.inTok / 1000).toFixed(1)}K טוקנים נכנסים, ${(u.outTok / 1000).toFixed(1)}K יוצאים ≈ <b>$${u.usd.toFixed(3)}</b></p>
     </div>
     <div class="card"><h3>🎓 המבחן</h3>
-      <label class="lbl">שם המבחן</label><input id="exname" value="${esc(s.examName)}">
       <label class="lbl">תאריך המבחן</label><input id="exdate" type="date" value="${esc(s.examDate)}">
       <p class="small muted">כשיהיה תאריך רשמי – עדכני אותו כאן. הספירה לאחור והתוכנית השבועית מתעדכנות לפיו.</p>
+      <label class="lbl">אילו מבחנים?</label>
+      ${[['ital2', 'TEST ITA L2 (מבחן האוניברסיטה, CISIA)'], ['cils', 'CILS DUE-B2'], ['celi', 'CELI 3']].map(([k, l]) => `<label class="check"><input type="checkbox" data-exam="${k}" ${(s.exams || []).includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}
       <label class="lbl">שעות שבועיות בקורס בסוזי אקדמי</label><input id="chours" type="number" min="0" max="40" value="${s.courseHours}">
+      <label class="lbl">ימי השיעור בקורס</label>
+      <div class="chips" id="ldays">${['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map((d, i) => `<button class="chip ${(s.lessonDays || []).includes(i) ? 'on' : ''}" data-ld="${i}">${d}</button>`).join('')}</div>
+      <p class="small muted">בימי השיעור מסך הבית יזכיר להוסיף את מה שנלמד.</p>
     </div>
     <div class="card"><h3>🧠 תרגול יומי</h3>
       <label class="lbl">זמן ביום באפליקציה</label>
@@ -1515,8 +1539,14 @@ routes.settings = {
       try { const r = await ai.testKey(); out.innerHTML = `<p class="ok">✓ עובד! המורה אומרת: <span class="it">${esc(r.msg)}</span></p>`; } catch (e) { out.innerHTML = errBox(e); }
     };
     $('#model').onchange = (e) => store.setSetting('model', e.target.value);
-    $('#exname').onchange = (e) => store.setSetting('examName', e.target.value.trim() || 'CILS B2 / CELI 3');
     $('#exdate').onchange = (e) => { if (e.target.value) { store.setSetting('examDate', e.target.value); store.S().week = null; store.save(); toast('התאריך עודכן'); } };
+    view().querySelectorAll('[data-exam]').forEach((c) => { c.onchange = () => store.setSetting('exams', [...view().querySelectorAll('[data-exam]:checked')].map((x) => x.dataset.exam)); });
+    $('#ldays').onclick = (e) => {
+      const b = e.target.closest('[data-ld]'); if (!b) return;
+      const d = new Set(set().lessonDays || []); const v = +b.dataset.ld;
+      if (d.has(v)) d.delete(v); else d.add(v);
+      store.setSetting('lessonDays', [...d]); b.classList.toggle('on');
+    };
     $('#chours').onchange = (e) => store.setSetting('courseHours', Math.max(0, +e.target.value || 0));
     $('#dgoal').onchange = (e) => store.setSetting('dailyGoal', +e.target.value);
     $('#npd').oninput = (e) => { $('#npdv').textContent = e.target.value; store.setSetting('newPerDay', +e.target.value); };
@@ -1580,7 +1610,23 @@ routes.help = {
   },
 };
 
-// ================= הכנה למבחן: CILS B2 / CELI 3 =================
+// ================= הכנה למבחן: TEST ITA L2 / CILS B2 / CELI 3 =================
+const has = (e) => (set().exams || []).includes(e);
+const examLabel = () => [has('ital2') && 'TEST ITA L2', has('cils') && 'CILS B2', has('celi') && 'CELI 3'].filter(Boolean).join(' / ') || set().examName;
+// עובדות שאומתו מול מקורות רשמיים (CISIA, Università per Stranieri di Siena / Perugia, Sapienza). לבדוק שוב לפני ההרשמה.
+function examInfoCards() {
+  const cards = [];
+  if (has('ital2')) cards.push(`<div class="card"><h3>🏛️ TEST ITA L2 (CISIA)</h3>
+    <p class="small">המבחן ש<b>האוניברסיטאות עצמן</b> עורכות למועמדים מחו"ל (למשל Sapienza, אונליין מהבית "@CASA"): <b>72 שאלות אמריקאיות ב-120 דקות</b>, 3 חלקים בקושי עולה (A2 → B1 → B2). בכל חלק: האזנה, קריאה ו-2 טקסטים של מבנים לשוניים. 40 דקות לחלק, <b>אי אפשר לחזור לחלק קודם</b>. אין כתיבה ואין דיבור.</p>
+    <p class="small">✅ <b>אין ניקוד שלילי</b> – תמיד לענות על הכל. סף המעבר נקבע בכל אוניברסיטה (למשל 55 ב-Sapienza; 51 מתוך 72 בברגמו).</p></div>`);
+  if (has('cils')) cards.push(`<div class="card"><h3>📜 CILS DUE-B2 (סיינה)</h3>
+    <p class="small">5 חלקים: האזנה (הקטעים מושמעים פעמיים), קריאה, מבנים לשוניים, כתיבה, דיבור (שיחה עם הבוחן + מונולוג של כ-2 דק'). כל חלק מתוך 20, וצריך <b>לפחות 11 בכל חלק</b>. חלק שלא עברת אפשר לגשת אליו שוב תוך שנה, בלי לחזור על השאר.</p></div>`);
+  if (has('celi')) cards.push(`<div class="card"><h3>📜 CELI 3 (פרוג'ה)</h3>
+    <p class="small">חלק כתוב (קריאה, כתיבה, מבנים לשוניים, האזנה) = 140 נקודות, צריך לפחות <b>84</b> (60%). חלק בעל-פה = 60 נקודות, צריך לפחות <b>33</b> (55%). הציון הסופי A–E.</p></div>`);
+  cards.push(`<p class="small muted">💡 לבדוק מול האוניברסיטה איזה מבחן היא מקבלת ועד מתי (בדרך כלל דרך Universitaly, לפני בקשת הוויזה). מבחני דוגמה רשמיים: cisiaonline.it, cils.unistrasi.it, cvcl.it.</p>`);
+  return cards.join('');
+}
+
 let exam = null; // המשימה הנוכחית בזיכרון, כדי שלא תאבד במעבר בין מסכים
 const examTarget = () => store.S().examTarget || (ai.levelInfo().idx >= 4 ? 'B2' : 'bridge');
 
@@ -1589,14 +1635,16 @@ routes.exam = {
     const tgt = examTarget();
     view().innerHTML = `<header class="top"><h1>🎓 הכנה למבחן</h1></header>
     ${countdownCard()}
-    <div class="card"><h3>מה יש במבחן?</h3>
-      <p class="small">גם <b>CILS DUE-B2</b> (אוניברסיטת סיינה) וגם <b>CELI 3</b> (פרוג'ה) בודקים חמש מיומנויות: <b>האזנה, קריאה, מבנים לשוניים (דקדוק בהקשר), כתיבה ודיבור</b>. ב-CILS צריך לעבור <b>כל חלק בנפרד</b> (בערך 11 מתוך 20) – לכן מתרגלים את כולם, לא רק את מה שקל.</p>
-      <p class="small muted">💡 הפורמט כאן מבוסס על המבנה הכללי של המבחנים. כדאי להוריד מבחני דוגמה מהאתרים הרשמיים (unistrasi.it ל-CILS, cvcl.it ל-CELI) ולעבור עליהם עם המורה בקורס.</p></div>
+    ${examInfoCards()}
     <div class="seg" id="tgt"><button data-t="bridge" class="${tgt === 'bridge' ? 'on' : ''}">🪜 רמת גישור (קצת מעלייך)</button><button data-t="B2" class="${tgt === 'B2' ? 'on' : ''}">🎯 רמת מבחן B2</button></div>
     ${!ai.hasKey() ? noKeyCard('התרגול למבחן') : ''}
     <div class="scen-list">${Object.entries(ai.EXAM_SECTIONS).map(([k, s]) => { const a = store.examAvg(k); return `
       <a class="scen" href="#ex/${k}"><span class="emoji">${s.icon}</span><div><b>${s.he}</b><small class="it">${s.it}</small>
       <small class="muted">כ-${s.min} דק' · ${a == null ? 'עוד לא תרגלת' : `ממוצע אחרון: ${a}%`}</small></div></a>`; }).join('')}</div>
+    ${has('ital2') ? `<h3 class="sec">🏛️ TEST ITA L2 (מבחן האוניברסיטה)</h3>
+    <div class="scen-list">${ai.ITAL2_PARTS.map((pt) => `<a class="scen" href="#ital2/${pt.n}"><span class="emoji">⏱️</span><div><b>${pt.he}</b><small class="muted">האזנה + קריאה + 2 טקסטי מבנים · 24 שאלות · 40 דק'</small></div></a>`).join('')}
+      <a class="scen" href="#ital2/sim"><span class="emoji">🏁</span><div><b>סימולציה מלאה</b><small class="muted">3 חלקים ברצף · 72 שאלות · 120 דק' · ממוצע אחרון: ${store.examAvg('ital2') ?? '—'}${store.examAvg('ital2') != null ? '%' : ''}</small></div></a></div>` : ''}
+    <h3 class="sec">✍️ חמשת החלקים של CILS / CELI</h3>
     <p class="small muted">ההמלצה: עד ינואר ברמת גישור (המשימית קצרית וקלות יותר, אותו פורמט). מפברואר – ברמת B2 אמיתית, ובשבועיים האחרונים חלק אחד כל יום.</p>`;
     $('#tgt').onclick = (e) => {
       const b = e.target.closest('button'); if (!b) return;
@@ -1763,12 +1811,130 @@ function renderProduction(head, tl) {
   };
 }
 
+
+// ---------- TEST ITA L2: חלק עם שעון, בלי חזרה אחורה ----------
+let ital = null; // { n, data, ends, done, sim: { scores: [] } }
+let italTimer = null;
+routes.ital2 = {
+  tab: 'exam',
+  async render(arg) {
+    clearInterval(italTimer);
+    const head = (t) => `<header class="top"><a href="#exam" class="back">→</a><div><h1>🏛️ TEST ITA L2</h1><div class="muted">${t}</div></div></header>`;
+    if (!ai.hasKey()) { view().innerHTML = head('') + noKeyCard('סימולציית המבחן'); return; }
+    const sim = arg === 'sim';
+    const n = sim ? (ital?.sim && !ital.sim.finished ? ital.n + (ital.done ? 1 : 0) : 1) : Math.min(3, Math.max(1, +arg || 1));
+    if (sim && n > 3) return italSimResult(head);
+    if (!ital || ital.n !== n || ital.done || !!ital.sim !== sim) {
+      const simState = sim ? (ital?.sim && !ital.sim.finished && n > 1 ? ital.sim : { scores: [] }) : null;
+      view().innerHTML = head(ai.ITAL2_PARTS[n - 1].he) + spinner('מכינה חלק במבנה המבחן (24 שאלות)… כ-40 שניות');
+      try { ital = { n, data: await ai.ital2Part(n), ends: 0, done: false, sim: simState }; } catch (e) { view().innerHTML = head('') + errBox(e) + '<a class="btn ghost" href="#exam">חזרה</a>'; return; }
+      if (!location.hash.startsWith('#ital2')) return;
+      ital.ends = Date.now() + 40 * 60000;
+    }
+    renderItal(head(`${ai.ITAL2_PARTS[n - 1].he}${sim ? ` · סימולציה ${n}/3` : ''}`));
+  },
+};
+
+function renderItal(head) {
+  const d = ital.data;
+  const qBlock = (sec, qs) => qs.map((q, qi) => `<div class="q"><p class="it" dir="ltr"><b>${qi + 1}.</b> ${esc(q.q)}</p>
+    <div class="options">${q.options.map((o, oi) => `<button class="opt it" data-s="${sec}" data-q="${qi}" data-o="${oi}">${esc(o)}</button>`).join('')}</div><div class="small muted why" id="why-${sec}-${qi}" hidden>${esc(q.why_he)}</div></div>`).join('');
+  const gapHtml = (t, ti) => esc(t.text).replace(/\[(\d+)\]/g, (m, k) => {
+    const g = t.gaps[+k - 1]; if (!g) return m;
+    return `<select class="gap" data-t="${ti}" data-g="${+k - 1}" dir="ltr"><option value="">(${k})</option>${g.options.map((o, oi) => `<option value="${oi}">${esc(o)}</option>`).join('')}</select>`;
+  }).replace(/\n+/g, '<br><br>');
+  const lines = d.listen.text.split(/\n+/).filter((x) => x.trim());
+  view().innerHTML = `${head}
+    <div class="timer-bar"><span>⏱️ <b id="tleft"></b></span><span class="small muted">אין ניקוד שלילי – עני על הכל</span></div>
+    <div class="card"><h3>🎧 Ascolto · ${esc(d.listen.title)}</h3>
+      <div class="player"><button class="btn" id="play">▶ השמעה</button><span class="small muted" id="plays">נשארו 2 השמעות</span></div>
+      <div class="story hidden-text" id="ltxt">${lines.map((p) => `<p class="it" dir="ltr">${esc(p)}</p>`).join('')}</div>
+      ${qBlock('l', d.listen.questions)}</div>
+    <div class="card"><h3>📖 Lettura · ${esc(d.read.title)}</h3>
+      <div class="story">${d.read.text.split(/\n+/).filter((x) => x.trim()).map((p) => `<p class="it" dir="ltr">${tappable(p)}</p>`).join('')}</div>
+      ${qBlock('r', d.read.questions)}</div>
+    ${d.struct.map((t, ti) => `<div class="card"><h3>🧩 Strutture ${ti + 1} · ${esc(t.title)}</h3><div class="it struct" dir="ltr">${gapHtml(t, ti)}</div></div>`).join('')}
+    <div class="actions"><button class="btn big" id="submit">סיום החלק</button></div><div id="res"></div>`;
+  const ans = {};
+  view().querySelectorAll('[data-s]').forEach((b) => {
+    b.onclick = () => {
+      if (ital.done) return;
+      ans[b.dataset.s + b.dataset.q] = +b.dataset.o;
+      b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('sel', x === b));
+    };
+  });
+  let plays = 2, playing = false;
+  const spoken = lines.map((p) => p.replace(/^[A-ZÀ-Ý][\wÀ-ÿ'. ]{0,25}:\s*/, ''));
+  $('#play').onclick = () => {
+    if (playing) { playing = false; stopSpeaking(); $('#play').textContent = '▶ השמעה'; return; }
+    if (!plays) return toast('נגמרו ההשמעות (כמו במבחן)');
+    playing = true; plays--; $('#plays').textContent = `נשארו ${plays} השמעות`; $('#play').textContent = '⏸ עצירה';
+    const step = (i) => {
+      if (!playing) return;
+      if (i >= spoken.length) { playing = false; $('#play').textContent = '▶ השמעה'; return; }
+      speak(spoken[i], { rate: 0.95, onend: () => setTimeout(() => step(i + 1), 450) });
+    };
+    step(0);
+  };
+  const tick = () => {
+    const ms = ital.ends - Date.now();
+    const el = $('#tleft'); if (!el) { clearInterval(italTimer); return; }
+    if (ms <= 0) { clearInterval(italTimer); el.textContent = '0:00'; toast('הזמן נגמר'); finish(); return; }
+    el.textContent = `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+  };
+  italTimer = setInterval(tick, 1000); tick();
+  const finish = () => {
+    if (ital.done) return;
+    ital.done = true; clearInterval(italTimer); stopSpeaking();
+    let ok = 0, total = 0;
+    [['l', d.listen.questions], ['r', d.read.questions]].forEach(([sec, qs]) => qs.forEach((q, qi) => {
+      total++;
+      const a = ans[sec + qi];
+      view().querySelectorAll(`[data-s="${sec}"][data-q="${qi}"]`).forEach((b, oi) => { b.disabled = true; if (oi === q.answer) b.classList.add('right'); else if (oi === a) b.classList.add('wrong'); });
+      if (a === q.answer) ok++;
+      $(`#why-${sec}-${qi}`).hidden = false;
+    }));
+    view().querySelectorAll('select.gap').forEach((s) => {
+      const g = d.struct[+s.dataset.t].gaps[+s.dataset.g]; total++;
+      const right = s.value !== '' && +s.value === g.answer;
+      s.disabled = true; s.classList.add(right ? 'right' : 'wrong');
+      if (right) ok++;
+      else s.insertAdjacentHTML('afterend', ` <span class="small fix">${esc(g.options[g.answer])}</span> <span class="small muted he">(${esc(g.rule_he)})</span>`);
+    });
+    $('#ltxt').classList.remove('hidden-text');
+    store.addExamResult('ital2', ok, total);
+    if (ital.sim) ital.sim.scores.push([ok, total]);
+    const simNext = ital.sim && ital.n < 3;
+    $('#res').innerHTML = `<div class="card center"><div class="huge">${ok}/${total}</div><p>${ok / total >= 0.76 ? '💪 מעל סף המעבר הגבוה.' : ok / total >= 0.7 ? '👍 בטווח סף המעבר – צמוד.' : 'עוד מתחת לסף המעבר – קראי את ההסברים, ונסי שוב בעוד שבוע.'}</p>
+      <p class="small muted">סף המעבר במבחן האמיתי הוא בערך 51–55 מתוך 72 (כ-70%–75%), תלוי באוניברסיטה.</p>
+      <div class="actions">${simNext ? '<a class="btn big" href="#ital2/sim" id="nextpart">לחלק הבא ←</a>' : ital.sim ? '<a class="btn big" href="#ital2/sim" id="nextpart">לתוצאה הכוללת ←</a>' : `<button class="btn ghost" id="again">חלק חדש</button><a class="btn" href="#exam">סיום</a>`}</div></div>`;
+    const nx = $('#nextpart'); if (nx) nx.onclick = (e) => { e.preventDefault(); routes.ital2.render('sim'); };
+    const ag = $('#again'); if (ag) ag.onclick = () => { const k = ital.n; ital = null; routes.ital2.render(String(k)); };
+    $('#res').scrollIntoView({ behavior: 'smooth' });
+  };
+  $('#submit').onclick = () => {
+    const missing = d.listen.questions.length + d.read.questions.length - Object.keys(ans).length + [...view().querySelectorAll('select.gap')].filter((x) => x.value === '').length;
+    if (missing > 0 && !confirm(`יש ${missing} שאלות בלי תשובה. במבחן אין ניקוד שלילי – כדאי לנחש. לסיים בכל זאת?`)) return;
+    finish();
+  };
+}
+
+function italSimResult(head) {
+  const sc = ital.sim.scores;
+  const ok = sc.reduce((a, x) => a + x[0], 0), tot = sc.reduce((a, x) => a + x[1], 0);
+  ital.sim.finished = true;
+  view().innerHTML = `${head('סימולציה מלאה')}<div class="card center"><div class="huge">${ok}/${tot}</div>
+    <p>${ok / tot >= 0.76 ? '💪 מעל סף המעבר הגבוה (55/72).' : ok / tot >= 0.7 ? '👍 בטווח סף המעבר (51–55/72) – צמוד, כדאי לחזק.' : 'עוד לא בטווח המעבר (51–55/72). זה בסדר – בשביל זה מתרגלים.'}</p>
+    ${sc.map((x, i) => `<div class="row-between"><span>${ai.ITAL2_PARTS[i].he}</span><b>${x[0]}/${x[1]}</b></div>`).join('')}
+    <div class="actions"><a class="btn" href="#exam">סיום</a></div></div>`;
+}
+
 // ================= מדידת זמן למידה =================
 let lastAct = Date.now();
 ['click', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, () => { lastAct = Date.now(); }, { passive: true }));
 setInterval(() => {
   const r = document.body.dataset.route;
-  const learning = ['practice', 'chat', 'story', 'write', 'unit', 'topic', 'diag', 'ex', 'suzy', 'stories'].includes(r);
+  const learning = ['practice', 'chat', 'story', 'write', 'unit', 'topic', 'diag', 'ex', 'ital2', 'suzy', 'stories'].includes(r);
   if (learning && document.visibilityState === 'visible' && Date.now() - lastAct < 90000) store.bump('seconds', 15);
 }, 15000);
 
